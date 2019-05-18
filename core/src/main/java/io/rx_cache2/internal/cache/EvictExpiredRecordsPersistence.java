@@ -53,4 +53,8 @@ public final class EvictExpiredRecordsPersistence extends Action {
 
     return Observable.just(1);
   }
+
+  public boolean isExpired(Record record) {
+    return hasRecordExpired.hasRecordExpired(record);
+  }
 }

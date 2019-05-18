@@ -26,6 +26,7 @@ import io.rx_cache2.EvictDynamicKey;
 import io.rx_cache2.EvictDynamicKeyGroup;
 import io.rx_cache2.Reply;
 import io.rx_cache2.Source;
+import io.rx_cache2.internal.cache.EvictExpiredRecordsPersistence;
 import io.rx_cache2.internal.cache.GetDeepCopy;
 import java.util.concurrent.Callable;
 import javax.inject.Inject;
@@ -36,6 +37,7 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
   private final GetDeepCopy getDeepCopy;
   private final Observable<Integer> oProcesses;
   private volatile Boolean hasProcessesEnded;
+  private final EvictExpiredRecordsPersistence evictExpiredRecordsPersistence;
 
   @Inject public ProcessorProvidersBehaviour(
       io.rx_cache2.internal.cache.TwoLayersCache twoLayersCache,
@@ -47,24 +49,18 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
     this.useExpiredDataIfLoaderNotAvailable = useExpiredDataIfLoaderNotAvailable;
     this.getDeepCopy = getDeepCopy;
     this.oProcesses = startProcesses(doMigrations, evictExpiredRecordsPersistence);
+    this.evictExpiredRecordsPersistence = evictExpiredRecordsPersistence;
   }
 
   private Observable<Integer> startProcesses(
       io.rx_cache2.internal.migration.DoMigrations doMigrations,
       final io.rx_cache2.internal.cache.EvictExpiredRecordsPersistence evictExpiredRecordsPersistence) {
-    Observable<Integer> oProcesses = doMigrations.react().flatMap(new Function<Integer, ObservableSource<Integer>>() {
-          @Override public ObservableSource<Integer> apply(Integer ignore) throws Exception {
-            return evictExpiredRecordsPersistence.startEvictingExpiredRecords();
-          }
-        }).subscribeOn((Schedulers.io())).observeOn(Schedulers.io()).share();
-
-
+    Observable<Integer> oProcesses = doMigrations.react().subscribeOn((Schedulers.io())).observeOn(Schedulers.io()).share();
     oProcesses.subscribe(new Consumer<Integer>() {
       @Override public void accept(Integer ignore) throws Exception {
         hasProcessesEnded = true;
       }
     });
-
     return oProcesses;
   }
 
@@ -93,7 +89,7 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
 
     Observable<Reply> replyObservable;
 
-    if (record != null && !configProvider.evictProvider().evict()) {
+    if (record != null && !evictExpiredRecordsPersistence.isExpired(record)) {
       replyObservable = Observable.just(new Reply(record.getData(), record.getSource(), configProvider.isEncrypted()));
     } else {
       replyObservable = getDataFromLoader(configProvider, record);
@@ -133,8 +129,6 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
       }
     }).onErrorReturn(new Function<Object, Object>() {
       @Override public Object apply(Object o) throws Exception {
-        clearKeyIfNeeded(configProvider);
-
         boolean useExpiredData = configProvider.useExpiredDataIfNotLoaderAvailable() != null ?
             configProvider.useExpiredDataIfNotLoaderAvailable()
             : useExpiredDataIfLoaderNotAvailable;

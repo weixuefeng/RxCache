@@ -56,6 +56,7 @@ public final class DeleteRecordMatchingClassName {
   }
 
   private boolean evictRecord(io.rx_cache2.internal.Record record) {
+    if(record == null) return false;
     String candidate = record.getDataClassName();
 
     for (Class aClass : classes) {
@@ -64,7 +65,6 @@ public final class DeleteRecordMatchingClassName {
         return true;
       }
     }
-
     return false;
   }
 }

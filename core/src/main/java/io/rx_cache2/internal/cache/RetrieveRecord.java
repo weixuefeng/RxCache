@@ -55,20 +55,6 @@ public final class RetrieveRecord extends Action {
     }
 
     record.setLifeTime(lifeTime);
-
-    if (hasRecordExpired.hasRecordExpired(record)) {
-      if (!dynamicKeyGroup.isEmpty()) {
-        evictRecord.evictRecordMatchingDynamicKeyGroup(providerKey, dynamicKey,
-            dynamicKeyGroup);
-      } else if (!dynamicKey.isEmpty()) {
-        evictRecord.evictRecordsMatchingDynamicKey(providerKey, dynamicKey);
-      } else {
-        evictRecord.evictRecordsMatchingProviderKey(providerKey);
-      }
-
-      return useExpiredDataIfLoaderNotAvailable ? record : null;
-    }
-
     return record;
   }
 }
