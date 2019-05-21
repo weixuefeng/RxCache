@@ -89,7 +89,7 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
 
     Observable<Reply> replyObservable;
 
-    if (record != null && !evictExpiredRecordsPersistence.isExpired(record)) {
+    if (record != null && !evictExpiredRecordsPersistence.isExpired(record) && !configProvider.evictProvider().evict()) {
       replyObservable = Observable.just(new Reply(record.getData(), record.getSource(), configProvider.isEncrypted()));
     } else {
       replyObservable = getDataFromLoader(configProvider, record);
