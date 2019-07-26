@@ -88,13 +88,18 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
         configProvider.getLifeTimeMillis(), configProvider.isEncrypted());
 
     Observable<Reply> replyObservable;
-
-    if (record != null && !evictExpiredRecordsPersistence.isExpired(record) && !configProvider.evictProvider().evict()) {
-      replyObservable = Observable.just(new Reply(record.getData(), record.getSource(), configProvider.isEncrypted()));
+    Observable<Reply> localObservable = Observable.just(new Reply(record.getData(), record.getSource(), configProvider.isEncrypted()));
+    Observable<Reply> remoteObservable = getDataFromLoader(configProvider, record);
+    if(record == null) {
+      // only load from network
+      replyObservable = remoteObservable;
     } else {
-      replyObservable = getDataFromLoader(configProvider, record);
+        if(!evictExpiredRecordsPersistence.isExpired(record) && !configProvider.evictProvider().evict()) {
+          replyObservable = localObservable;
+        } else {
+          replyObservable = Observable.concat(localObservable, remoteObservable);
+        }
     }
-
     return (Observable<T>) replyObservable.map(new Function<Reply, Object>() {
       @Override public Object apply(Reply reply) throws Exception {
         return ProcessorProvidersBehaviour.this.getReturnType(configProvider, reply);
