@@ -91,13 +91,16 @@ public final class ProcessorProvidersBehaviour implements ProcessorProviders {
     Observable<Reply> remoteObservable = getDataFromLoader(configProvider, record);
     if(record == null) {
       // only load from network
+      System.out.println("RxCache only remote");
       replyObservable = remoteObservable;
     } else {
-      Observable<Reply> localObservable = Observable.just(new Reply(record.getData(), record.getSource(), configProvider.isEncrypted()));
-      if(!evictExpiredRecordsPersistence.isExpired(record) && !configProvider.evictProvider().evict()) {
+        Observable<Reply> localObservable = Observable.just(new Reply(record.getData(), record.getSource(), configProvider.isEncrypted()));
+        if(!evictExpiredRecordsPersistence.isExpired(record) && !configProvider.evictProvider().evict()) {
+          System.out.println("RxCache only local");
           replyObservable = localObservable;
         } else {
-          replyObservable = Observable.concat(localObservable, remoteObservable);
+            System.out.println("RxCache local and remote");
+            replyObservable = Observable.concat(localObservable, remoteObservable).share();
         }
     }
     return (Observable<T>) replyObservable.map(new Function<Reply, Object>() {
